@@ -1,0 +1,14 @@
+program = commands* EOF
+commands = dir / oper / io / int / erase / end
+dir = r'[<|>|\^|v]'
+oper = sum / mult / copy / range / mod / logic_oper
+sum = r'\+|⨁|D'
+mult = r'\*|×|⨂|∘|∙|•|·|o|.|X'
+copy = "c"
+range = r'i|ï|Ï'
+mod = r'\%'
+logic_oper = r'\||\&|¬|\~'
+erase = r'\$|¢'
+io = r'b|r'
+end = "@"
+int = r'[0-9]'

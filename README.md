@@ -1,2 +1,15 @@
-# tph_lang
-tph is a 2d array programming language inspired in befunge and APL.
+# tph
+
+tph is an APL and Befunge inspired 2d array programming language.
+
+# Symbols
+
+
+# Examples
+
+```
+12+r@
+```
+`output: 3`
+
+
