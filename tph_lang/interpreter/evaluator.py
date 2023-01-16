@@ -25,7 +25,6 @@ class Eval:
             Symbol("@"): self.ast_end,
             Symbol("+"): self.ast_simple_sum,
             Symbol("D"): self.ast_array_sum,
-            Symbol("."): self.ast_dot,
             Symbol("c"): self.ast_copy,
             Symbol("%"): self.ast_mod,
             Symbol("i"): self.ast_iota,
@@ -67,9 +66,8 @@ class Eval:
             if self.code.get(pos, False):
                 if self.code[pos].get(cur_pos[1], False):
                     return (pos, cur_pos[1]), False
-                if pos - 1 > 0:
+                if any([pos - 1 <= k for k in self.lines]):
                     return self._find_next(cur_dir, cur_pos, pos - 1)
-                return self._find_next(cur_dir, cur_pos, self.lines[-1])
             return cur_pos, True
         if cur_dir == "down":
             if self.code.get(pos, False):
@@ -95,21 +93,43 @@ class Eval:
             endline = True
         return cur_dir, cur_pos, endline
 
-    def main_move(self, *args, **kwargs):
-        self.cur_dir, self.cur_pos, endline = self._move_next(self.cur_dir, self.cur_pos)
-        if not endline:
-            self.cur_value = self.code[self.cur_pos[0]][self.cur_pos[1]]
-            self.walk(self.cur_value, self.cur_dir, self.cur_pos, "main", kwargs.get("extra", None))
-
-    def sec_move(self, cur_dir, cur_pos, scope, extra=None):
+    def move(self, cur_dir, cur_pos, scope, extra=None):
         cur_dir, cur_pos, endline = self._move_next(cur_dir, cur_pos)
         if not endline:
             cur_value = self.code[cur_pos[0]][cur_pos[1]]
             self.walk(cur_value, cur_dir, cur_pos, scope, extra)
 
     def go_next(self, cur_dir, cur_pos, scope, extra=None):
-        self.main_move(extra=extra) if scope == "main" else self.sec_move(cur_dir, cur_pos, scope,
-                                                                          extra)
+        self.move(cur_dir, cur_pos, scope, extra)
+
+    def peek_next(self, cur_dir, cur_pos):
+        if cur_dir == "left":
+            first_pos = cur_pos[1] - 1
+            second_pos = cur_pos[0] - 1
+            new_dir = "up"
+        elif cur_dir == "right":
+            first_pos = cur_pos[1] + 1
+            second_pos = cur_pos[0] + 1
+            new_dir = "down"
+        elif cur_dir == "up":
+            first_pos = cur_pos[0] - 1
+            second_pos = cur_pos[1] + 1
+            new_dir = "right"
+        elif cur_dir == "down":
+            first_pos = cur_pos[0] + 1
+            second_pos = cur_pos[1] - 1
+            new_dir = "left"
+        else:
+            raise ValueError(f"peek could not find cur_dir {cur_dir}.")
+
+        new_pos, endline = self._find_next(cur_dir, cur_pos, first_pos)
+        if not endline:
+            return cur_dir, new_pos
+        else:
+            new_pos, endline = self._find_next(new_dir, cur_pos, second_pos)
+            if not endline:
+                return new_dir, new_pos
+        raise ValueError("peek could not find where to go.")
 
     def look_side(self, cur_dir, cur_pos, scope, extra=None):
         if cur_dir == "right":
@@ -160,24 +180,20 @@ class Eval:
         self.go_next(cur_dir, cur_pos, scope, extra)
 
     def ast_right(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            self.cur_dir = "right"
-            self.go_next(self.cur_dir, cur_pos, scope, extra)
+        cur_dir = "right"
+        self.go_next(cur_dir, cur_pos, scope, extra)
 
     def ast_left(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            self.cur_dir = "left"
-            self.go_next(self.cur_dir, cur_pos, scope, extra)
+        cur_dir = "left"
+        self.go_next(cur_dir, cur_pos, scope, extra)
 
     def ast_up(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            self.cur_dir = "up"
-            self.go_next(self.cur_dir, cur_pos, scope, extra)
+        cur_dir = "up"
+        self.go_next(cur_dir, cur_pos, scope, extra)
 
     def ast_down(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            self.cur_dir = "down"
-            self.go_next(self.cur_dir, cur_pos, scope, extra)
+        cur_dir = "down"
+        self.go_next(cur_dir, cur_pos, scope, extra)
 
     def ast_end(self, data, cur_dir, cur_pos, scope, extra=None):
         self.t1 = process_time()
@@ -241,7 +257,10 @@ class Eval:
             self.dyadic_mod()
         else:
             self.perform_oper = True
-        self.go_next(cur_dir, cur_pos, scope, extra)
+        new_dir, _ = self.peek_next(cur_dir, cur_pos)
+        if cur_dir != new_dir:
+            self.main_array, self.rhs_array = self.rhs_array, []
+        self.go_next(new_dir, cur_pos, scope, extra)
 
     def dyadic_mod(self, **kwargs):
         # TODO: generalize for all scopes (currently for main)
@@ -271,7 +290,15 @@ class Eval:
             raise NotImplementedError("need to implement iota for scopes other than 'main'.")
 
     def ast_and(self, data, cur_dir, cur_pos, scope, extra=None):
-        pass
+        if scope == "main":
+            pass
+        elif scope == "lhs":
+            self.dyadics.get(extra, self.ast_null)(oper=data)
+            self.perform_oper = False
+            self.lhs_array = []
+        elif scope == "rhs":
+            pass
+        self.go_next(cur_dir, cur_pos, scope, extra)
 
     @staticmethod
     def dyadic_and(*args):
@@ -281,8 +308,10 @@ class Eval:
         if scope == "main":
             pass
         elif scope == "lhs":
+            # initial approach
             self.dyadics.get(extra, self.ast_null)(oper=data)
             self.perform_oper = False
+            self.lhs_array = []
         elif scope == "rhs":
             pass
         self.go_next(cur_dir, cur_pos, scope, extra)
@@ -292,7 +321,13 @@ class Eval:
         return any(args)
 
     def ast_not(self, data, cur_dir, cur_pos, scope, extra=None):
-        pass
+        if scope == "main":
+            self.main_array = [not k for k in self.main_array]
+        elif scope == "lhs":
+            self.lhs_array = [not k for k in self.lhs_array]
+        elif scope == "rhs":
+            self.rhs_array = [not k for k in self.rhs_array]
+        self.go_next(cur_dir, cur_pos, scope, extra)
 
     def ast_input(self, data, cur_dir, cur_pos, scope, extra=None):
         answer = input(": ")
@@ -300,7 +335,15 @@ class Eval:
         self.go_next(cur_dir, cur_pos, scope, extra)
 
     def ast_output(self, data, cur_dir, cur_pos, scope, extra=None):
-        print(*self.main_array)
+        if scope == "main":
+            res = self.main_array
+        elif scope == "lhs":
+            res = self.lhs_array
+        elif scope == "rhs":
+            res = self.rhs_array
+        else:
+            res = []
+        print(*res)
         self.go_next(cur_dir, cur_pos, scope, extra)
 
     def ast_erase(self, data, cur_dir, cur_pos, scope, extra=None):

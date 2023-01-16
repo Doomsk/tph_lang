@@ -15,11 +15,23 @@ def run(code, print_parse=False):
 @click.group(invoke_without_command=True, context_settings=dict(ignore_unknown_options=True))
 @click.argument("file", type=click.Path(exists=True), required=False)
 @click.option("-v", "version", is_flag=True)
-def run2(file, version):
+@click.option("-p", "do_print", is_flag=True)
+def run2(file, version, do_print):
     if version:
         click.echo(f"H-hat version {__version__}")
     else:
         code = open(file, "r").read()
+        if do_print:
+            print()
+            print("tph code")
+            print('--------')
+            print()
+            print(code)
+            print()
+            print('-'*30)
+            print()
+            print("interpreter")
+            print('-----------')
         run(code)
 
 
