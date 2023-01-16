@@ -24,7 +24,8 @@ tph is an APL and Befunge inspired 2d array programming language.
     * [Simple Sum](#simple-sum)
     * [Direct Sum](#direct-sum)
     * [Program End](#program-end)
-* []()
+* [Bugs, Issues, Etc](#bugs-issues-etc)
+* [How to contribute](#how-to-contribute)
 
 
 # Reasoning
