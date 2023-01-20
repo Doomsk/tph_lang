@@ -1,4 +1,4 @@
-from tph_lang.core.structures import Symbol
+from tph_lang.interpreter.structures import Symbol
 
 
 class AST:
@@ -23,6 +23,16 @@ class AST:
     def cols(self, line):
         return list(self.value[line].keys())
 
+    def given_line(self, line):
+        return list(self.value[line].keys())
+
+    def given_col(self, col):
+        lines = []
+        for line, value in self.value.items():
+            if col in value.keys():
+                lines.append(line)
+        return lines
+
     @staticmethod
     def get_inner(x):
         yield from x.items() if isinstance(x, dict) else x
@@ -30,8 +40,11 @@ class AST:
     def __iter__(self):
         yield from map(lambda x: (x[0], self.get_inner(x[1])), self.value.items())
 
-    def get(self, value, other=None):
+    def get_line(self, value, other=None):
         return self.value.get(value, other)
+
+    def get(self, pos):
+        return self.value[pos[0]][pos[1]]
 
     def __getitem__(self, value):
         return self.value.get(value, None)

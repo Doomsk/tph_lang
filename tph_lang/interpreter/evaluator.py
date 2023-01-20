@@ -1,377 +1,382 @@
-from time import process_time
-from tph_lang.core.structures import Symbol
+from copy import deepcopy
+from tph_lang.core.ast import AST
+from tph_lang.interpreter.moving import Mover
+from tph_lang.interpreter.literals import check_literal
+from tph_lang.interpreter.structures import (ArrayGroup, Symbol)
 
 
 # noinspection PyArgumentList
 class Eval:
-    def __init__(self, code):
-        self.code = code
-        self.main_array = []
-        self.lhs_array = []
-        self.rhs_array = []
-        self.cur_dir = "right"
-        self.cur_pos = self.code.pos
-        self.side_erase = False
-        self.cur_value = ''
-        self.perform_oper = True
-        self.t0 = 0
-        self.t1 = 0
-        self.lines = self.code.lines()
+    def __init__(self, code: AST):
+        self.code = self.check_code(code)
+        self.walker = Mover(code)
         self.nodes = {
-            Symbol(">"): self.ast_right,
-            Symbol("<"): self.ast_left,
-            Symbol("^"): self.ast_up,
-            Symbol("v"): self.ast_down,
-            Symbol("@"): self.ast_end,
-            Symbol("+"): self.ast_simple_sum,
-            Symbol("D"): self.ast_array_sum,
-            Symbol("c"): self.ast_copy,
-            Symbol("%"): self.ast_mod,
-            Symbol("i"): self.ast_iota,
-            Symbol("|"): self.ast_or,
-            Symbol("&"): self.ast_and,
-            Symbol("~"): self.ast_not,
-            Symbol("b"): self.ast_input,
-            Symbol("r"): self.ast_output,
-            Symbol("$"): self.ast_erase,
-            Symbol("¢"): self.ast_side_erase
+            "[move-right]": self.ast_right,
+            "[move-left]": self.ast_left,
+            "[move-up]": self.ast_up,
+            "[move-down]": self.ast_down,
+            "[end-program]": self.ast_endprogram,
+            "[mod]": self.ast_mod,
+            "[iota-range]": self.ast_iota,
+            "[copy]": self.ast_copy,
+            "[open-num]": self.ast_open_num,
+            "[close-num]": self.ast_close_num,
+            "[head]": self.ast_head,
+            "[tail]": self.ast_tail,
+            "[input]": self.ast_input,
+            "[output]": self.ast_output
         }
-        self.dyadics = {
-            Symbol("%"): self.dyadic_mod,
-            Symbol("|"): self.dyadic_or,
-            Symbol("&"): self.dyadic_and,
-            None: self.ast_null
+        self.metacode = {
+            "[mod]": self.meta_mod,
+            "[iota-range]": self.meta_iota,
+            "[open-num]": self.meta_open_num,
+            "[close-num]": self.meta_close_num,
+            "[head]": self.meta_head,
+            "[tail]": self.meta_tail,
+            "[input]": self.meta_input,
+            "[output]": self.meta_output
         }
+        self.monads = {}
+        self.dyads = {}
+        self.literals = check_literal
 
-    def _handle_input(self, data):
+    @staticmethod
+    def check_code(data):
+        if isinstance(data, AST):
+            return data
+        raise ValueError(f"code must be parsed and of type tph_lang.core.ast.AST.")
+
+    ###################
+    # EXTRA FUNCTIONS #
+    ###################
+
+    @staticmethod
+    def def_extra(data=None):
+        if isinstance(data, (str, Symbol)):
+            return [dict(oper=data, value=0)]
+        return []
+
+    @staticmethod
+    def check_extra(extra, data):
+        value = "oper" if isinstance(data, str) else "value"
+        if len(extra) > 0:
+            return extra[-1].get(value, Symbol(None))
+        return Symbol(None)
+
+    @staticmethod
+    def append_extra(extra, data):
+        extra.append({"oper": data, "value": 0})
+
+    @staticmethod
+    def pop_extra(extra, pos=0):
+        if len(extra) > 0:
+            return extra.pop(pos if pos < len(extra) else 0)
+        return dict(oper=Symbol(None).name, value=0)
+
+    @staticmethod
+    def assign_extra(extra, key, data):
+        if key in extra[-1].keys():
+            extra[-1][key] = data
+
+    @staticmethod
+    def inc_value_extra(extra):
+        extra[-1]["value"] += 1
+
+    #####################
+    # EXECUTE FUNCTIONS #
+    #####################
+
+    def execute_direction(self, array, scope, extra):
+        new_pos, endline = self.walker.go_next(array.cur_pos, array.cur_dir)
+        if not endline:
+            array.cur_pos = new_pos
+            code = self.code.get(new_pos)
+            self.walk(code, array, scope, extra)
+        else:
+            raise ValueError(f"no code found on {array.cur_dir} direction.")
+
+    def execute_next(self, code, array, scope, extra):
+        new_pos, endline = self.walker.go_next(array.cur_pos, array.cur_dir)
+        print(f"next: new pos {code} {new_pos} {array.cur_dir} {extra} {endline} {scope}")
+        if not endline:
+            array.cur_pos = new_pos
+            code = self.code.get(new_pos)
+            self.walk(code, array, scope, extra)
+
+    def execute_metamonad(self, code, array, scope, extra):
+        print(code.name, code.value, array.cur_pos, array.cur_dir, scope)
+        self.metacode.get(code.name, self.meta_null)(code, array, scope, extra)
+
+    def execute_metadyad(self, code, array, scope, extra):
+        print(code.name, code.value, array.cur_pos, array.cur_dir, extra, scope)
+        data = self.walker.look_around(array.cur_pos, array.cur_dir)
+        self.append_extra(extra, code)
+        if data["lhs"]:
+            print(f"{code.name}: lhs found")
+            if scope in ["lhs", "rhs"]:
+                print('new array lhs')
+                new_array = ArrayGroup(
+                    scope="main",
+                    cur_pos=array.cur_pos,
+                    cur_dir=array.cur_dir,
+                    marginal=True
+                )
+                new_array.main = array.from_scope[scope].copy()
+                self.walk_lhs(new_array, "main", extra)
+            else:
+                self.walk_lhs(array, "lhs", extra)
+                self.pop_extra(extra)
+        print(f"before meta {array.main} {array.lhs} {array.rhs}")
+        self.metacode.get(code.name)(code, array, scope, extra)
+        print(f"after meta {array.main} {array.lhs} {array.rhs}")
+        array.lhs.clean()
+
+    def execute_metatriad(self, code, array, scope, extra):
+        print(code.name, code.value, array.cur_pos, array.cur_dir, scope)
+        data = self.walker.look_around(array.cur_pos, array.cur_dir)
+        new_extra = self.def_extra(code)
+        if data["rhs"]:
+            print(f"{code.name}: rhs found")
+            self.walk_rhs(array, scope, new_extra)
+        if data["lhs"]:
+            print(f"{code.name}: lhs found")
+            self.walk_lhs(array, scope, new_extra)
+        if len(extra) > 0:
+            print(self.metacode)
+
+    def execute_auxiliary_path(self, new_scope, array, scope, extra):
+        if new_scope == "lhs":
+            new_dir = self.walker.to_lhs[array.cur_dir]
+        else:  # new_scope == "rhs"
+            new_dir = self.walker.to_rhs[array.cur_dir]
+        new_pos, endline = self.walker.go_next(cur_pos=array.cur_pos, cur_dir=new_dir)
+        print(f"aux path {array.cur_pos} {new_pos} {new_dir} {endline}")
+        new_code = self.code.get(new_pos)
+        array.cur_pos = new_pos
+        self.walk(new_code, array, new_scope, extra)
+
+    ##################
+    # META FUNCTIONS #
+    ##################
+
+    # TODO: move this section to respective classes in monad, dyad, etc files
+
+    def meta_null(self, *args, **kwargs):
+        return False
+
+    def meta_input(self, code, array, scope, extra):
+        data = input(": ")
         words = data.replace('(', '').replace(')', '').replace(',', ' ').split(' ')
         for w in words:
-            value = self.check_literal(w)
-            self.main_array.append(value)
+            if val := check_literal(w):
+                array.from_scope[scope].append(val)
 
-    def _find_next(self, cur_dir, cur_pos, pos):
-        if cur_dir == "left":
-            if self.code[cur_pos[0]].get(pos, False):
-                return (cur_pos[0], pos), False
-            if pos - 1 > 0:
-                return self._find_next(cur_dir, cur_pos, pos - 1)
-            return cur_pos, True
-        if cur_dir == "right":
-            if self.code[cur_pos[0]].get(pos, False):
-                return (cur_pos[0], pos), False
-            if any([pos < k for k in self.code.cols(cur_pos[0])]):
-                return self._find_next(cur_dir, cur_pos, pos + 1)
-            return cur_pos, True
-        if cur_dir == "up":
-            if self.code.get(pos, False):
-                if self.code[pos].get(cur_pos[1], False):
-                    return (pos, cur_pos[1]), False
-                if any([pos - 1 <= k for k in self.lines]):
-                    return self._find_next(cur_dir, cur_pos, pos - 1)
-            return cur_pos, True
-        if cur_dir == "down":
-            if self.code.get(pos, False):
-                if self.code[pos].get(cur_pos[1], False):
-                    return (pos, cur_pos[1]), False
-                if any([pos + 1 <= k for k in self.lines]):
-                    return self._find_next(cur_dir, cur_pos, pos + 1)
-                return cur_pos, True
-            return self._find_next(cur_dir, cur_pos, pos + 1)
-        raise ValueError("oh no! something went wrong")
+    def meta_output(self, code, array, scope, extra):
+        print(*array.from_scope[scope])
 
-    def _move_next(self, cur_dir, cur_pos):
-        if cur_dir == "left":
-            cur_pos, endline = self._find_next(cur_dir, cur_pos, cur_pos[1] - 1)
-        elif cur_dir == "right":
-            cur_pos, endline = self._find_next(cur_dir, cur_pos, cur_pos[1] + 1)
-        elif cur_dir == "up":
-            cur_pos, endline = self._find_next(cur_dir, cur_pos, cur_pos[0] - 1)
-        elif cur_dir == "down":
-            cur_pos, endline = self._find_next(cur_dir, cur_pos, cur_pos[0] + 1)
-        else:
-            print("wut?")
-            endline = True
-        return cur_dir, cur_pos, endline
+    def meta_open_num(self, code, array, scope, extra):
+        pass
 
-    def move(self, cur_dir, cur_pos, scope, extra=None):
-        cur_dir, cur_pos, endline = self._move_next(cur_dir, cur_pos)
-        if not endline:
-            cur_value = self.code[cur_pos[0]][cur_pos[1]]
-            self.walk(cur_value, cur_dir, cur_pos, scope, extra)
+    def meta_close_num(self, code, array, scope, extra):
+        pass
 
-    def go_next(self, cur_dir, cur_pos, scope, extra=None):
-        self.move(cur_dir, cur_pos, scope, extra)
-
-    def peek_next(self, cur_dir, cur_pos):
-        if cur_dir == "left":
-            first_pos = cur_pos[1] - 1
-            second_pos = cur_pos[0] - 1
-            new_dir = "up"
-        elif cur_dir == "right":
-            first_pos = cur_pos[1] + 1
-            second_pos = cur_pos[0] + 1
-            new_dir = "down"
-        elif cur_dir == "up":
-            first_pos = cur_pos[0] - 1
-            second_pos = cur_pos[1] + 1
-            new_dir = "right"
-        elif cur_dir == "down":
-            first_pos = cur_pos[0] + 1
-            second_pos = cur_pos[1] - 1
-            new_dir = "left"
-        else:
-            raise ValueError(f"peek could not find cur_dir {cur_dir}.")
-
-        new_pos, endline = self._find_next(cur_dir, cur_pos, first_pos)
-        if not endline:
-            return cur_dir, new_pos
-        else:
-            new_pos, endline = self._find_next(new_dir, cur_pos, second_pos)
-            if not endline:
-                return new_dir, new_pos
-        raise ValueError("peek could not find where to go.")
-
-    def look_side(self, cur_dir, cur_pos, scope, extra=None):
-        if cur_dir == "right":
-            cur_dir = "up"
-        elif cur_dir == "left":
-            cur_dir = "down"
-        elif cur_dir == "up":
-            cur_dir = "left"
-        elif cur_dir == "down":
-            cur_dir = "right"
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def look_lhs(self, cur_dir, cur_pos, extra=None):
-        self.look_side(cur_dir, cur_pos, "lhs", extra)
-
-    def look_rhs(self, cur_dir, cur_pos, extra=None):
-        self.look_side(cur_dir, cur_pos, "rhs", extra)
-
-    @staticmethod
-    def get_int(data):
-        if isinstance(data, Symbol):
-            try:
-                return int(data.value)
-            except ValueError:
-                raise ValueError()
-        if isinstance(data, str):
-            try:
-                return int(data)
-            except ValueError:
-                raise ValueError()
-
-    def check_literal(self, data):
-        try:
-            value = self.get_int(data)
-        except ValueError as e:
-            raise ValueError(f"something went wrong on literal value... {e}.")
-        else:
-            return value
-
-    def ast_literal(self, data, cur_dir, cur_pos, scope, extra=None):
-        value = self.check_literal(data)
-        if scope == "main":
-            self.main_array.append(value)
-        elif scope == "lhs":
-            self.lhs_array.append(value)
-        elif scope == "rhs":
-            self.rhs_array.append(value)
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_right(self, data, cur_dir, cur_pos, scope, extra=None):
-        cur_dir = "right"
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_left(self, data, cur_dir, cur_pos, scope, extra=None):
-        cur_dir = "left"
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_up(self, data, cur_dir, cur_pos, scope, extra=None):
-        cur_dir = "up"
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_down(self, data, cur_dir, cur_pos, scope, extra=None):
-        cur_dir = "down"
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_end(self, data, cur_dir, cur_pos, scope, extra=None):
-        self.t1 = process_time()
-        print('-' * 30)
-        print(f'@end program in {round(self.t1 - self.t0, 6)}s')
-
-    def ast_simple_sum(self, data, cur_dir, cur_pos, scope, extra=None):
-        array = self.main_array if scope == "main" else self.lhs_array if scope == "lhs" else self.rhs_array
-        if all([isinstance(k, (int, float)) for k in array]):
-            if scope == "main":
-                self.main_array = [sum(array)]
-            elif scope == "lhs":
-                self.lhs_array = [sum(array)]
-            elif scope == "rhs":
-                self.rhs_array = [sum(array)]
-            self.go_next(cur_dir, cur_pos, scope, extra)
-        else:
-            print("simple-sum failed?")
-
-    def ast_array_sum(self, data, cur_dir, cur_pos, scope, extra=None):
-        # TODO: implement it properly
-        array = self.main_array if scope == "main" else self.lhs_array if scope == "lhs" else self.rhs_array
-        if all([isinstance(k, (int, float)) for k in array]):
-            if scope == "main":
-                self.look_lhs(cur_dir, cur_pos, extra)
-                if len(self.lhs_array) == 1:
-                    data = self.lhs_array[0]
-                    self.main_array = [m + data for m in self.main_array]
-                else:
-                    self.main_array = [m + n for m, n in zip(self.main_array, self.lhs_array)]
-
-                if self.side_erase:
-                    self.lhs_array = []
-                    self.side_erase = False
-                self.go_next(cur_dir, cur_pos, scope, extra)
+    def meta_mod(self, code, array, scope, extra):
+        if len(array.main) > 0 and len(array.lhs) > 0:
+            tmp_main = []
+            if len(extra) > 0:
+                oper = self.pop_extra(extra)["oper"]
+                for p in array.main:
+                    if self.metacode.get(oper, self.meta_null)(*[p % k == 0 for k in array.lhs]):
+                        tmp_main.append(p)
+                    else:
+                        array.rhs.append(p)
             else:
-                raise NotImplementedError("cannot array-sum outside 'main' scope yet.")
+                for p in array.main:
+                    if p % array.lhs[-1] == 0:
+                        tmp_main.append(p)
+                    else:
+                        array.rhs.append(p)
+            array.main = tmp_main
 
-    def ast_dot(self, data, cur_dir, cur_pos, scope, extra=None):
+    def meta_iota(self, code, array, scope, extra):
+        if len(array.from_scope[scope]) > 0:
+            value = array.from_scope[scope].pop(0)
+            array.from_scope[scope].extend([n for n in range(value)])
+        else:
+            raise ValueError("cannot perform 'iota' on empty array.")
+
+    def meta_copy(self, core, array, scope, extra):
+        if len(array.main) > 0:
+            if len(extra) > 0:
+                oper = self.pop_extra(extra)["oper"]
+            else:
+                array.lhs = deepcopy(array.main)
+
+    def meta_head(self, core, array, scope, extra):
+        if scope == "main" and len(array.main) > 0:
+            value = array.main.pop(-1)
+        elif len(array.from_scope[scope]) > 0:
+            value = array.from_scope[scope].pop(-1)
+        else:
+            raise ValueError("no head!")
+        if len(extra) > 0:
+            return array.main[:value]
+        array.main = array.main[:value]
+
+    def meta_tail(self, core, array, scope, extra):
+        if scope == "main" and len(array.main) > 0:
+            value = array.main.pop(-1)
+        elif len(array.from_scope[scope]) > 0:
+            value = array.from_scope[scope].pop(-1)
+        else:
+            raise ValueError("no tail!")
+        if len(extra) > 0:
+            return array.main[-value:]
+        array.main = array.main[-value:]
+
+    #################
+    # AST FUNCTIONS #
+    #################
+
+    def ast_right(self, code, array, scope, extra):
+        print(code.name, code.value, array.cur_pos, array.cur_dir)
+        array.cur_dir = "right"
+        self.execute_direction(array, scope, extra)
+
+    def ast_left(self, code, array, scope, extra):
+        print(code.name, code.value, array.cur_pos, array.cur_dir)
+        array.cur_dir = "left"
+        self.execute_direction(array, scope, extra)
+
+    def ast_up(self, code, array, scope, extra):
+        print(code.name, code.value, array.cur_pos, array.cur_dir)
+        array.cur_dir = "up"
+        self.execute_direction(array, scope, extra)
+
+    def ast_down(self, code, array, scope, extra):
+        print(code.name, code.value, array.cur_pos, array.cur_dir)
+        array.cur_dir = "down"
+        self.execute_direction(array, scope, extra)
+
+    def ast_mod(self, code, array, scope, extra):
+        old_pos, old_dir = array.flush()
+        self.execute_metadyad(code, array, scope, extra)
+        array.cur_pos, array.cur_dir = old_pos, old_dir
+        _, new_dir = self.walker.peek_next(array.cur_pos, array.cur_dir)
+        if new_dir != array.cur_dir:
+            array.cur_dir = new_dir
+            array.main.swap(array.rhs)
+            array.rhs.clean()
+        self.execute_next(code, array, scope, extra)
+
+    def ast_iota(self, code, array, scope, extra):
+        old_pos, old_dir = array.flush()
+        self.execute_metamonad(code, array, scope, extra)
+        array.cur_pos, array.cur_dir = old_pos, old_dir
+        self.execute_next(code, array, scope, extra)
+
+    def ast_copy(self, code, array, scope, extra):
+        old_pos, old_dir = array.flush()
+        self.execute_metadyad(code, array, scope, extra)
+        array.cur_pos, array.cur_dir = old_pos, old_dir
+        self.execute_next(code, array, scope, extra)
+
+    def ast_open_num(self, code, array, scope, extra):
+        extra = self.def_extra(code)
+        self.execute_metamonad(code, array, scope, extra)
+        self.execute_next(code, array, scope, extra)
+
+    def ast_close_num(self, code, array, scope, extra):
+        self.execute_metamonad(code, array, scope, extra)
+        self.execute_next(code, array, scope, extra)
+
+    def ast_head(self, code, array, scope, extra):
+        old_pos, old_dir = array.flush()
+        self.execute_metamonad(code, array, scope, extra)
+        array.cur_pos, array.cur_dir = old_pos, old_dir
+        self.execute_next(code, array, scope, extra)
+
+    def ast_tail(self, code, array, scope, extra):
+        old_pos, old_dir = array.flush()
+        self.execute_metamonad(code, array, scope, extra)
+        array.cur_pos, array.cur_dir = old_pos, old_dir
+        self.execute_next(code, array, scope, extra)
+
+    def ast_input(self, code, array, scope, extra):
+        old_pos, old_dir = array.flush()
+        self.execute_metamonad(code, array, scope, extra)
+        array.cur_pos, array.cur_dir = old_pos, old_dir
+        self.execute_next(code, array, scope, extra)
+
+    def ast_output(self, code, array, scope, extra):
+        old_pos, old_dir = array.flush()
+        self.execute_metamonad(code, array, scope, extra)
+        array.cur_pos, array.cur_dir = old_pos, old_dir
+        self.execute_next(code, array, scope, extra)
+
+    def ast_endprogram(self, code, array, scope, extra):
+        print("@end program.")
+        print(array.main)
+        print(array.lhs)
+        print(array.rhs)
+
+    def null(self, *args, **kwargs):
         pass
 
-    def ast_copy(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            self.main_array.extend(self.main_array)
-        elif scope == "lhs":
-            self.lhs_array.extend(self.main_array)
-        elif scope == "rhs":
-            self.rhs_array.extend(self.main_array)
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_mod(self, data, cur_dir, cur_pos, scope, extra=None):
-        if cur_dir == "right":
-            self.go_next("up", cur_pos, "lhs", data)
-        elif cur_dir == "left":
-            self.go_next("down", cur_pos, "lhs", data)
-        elif cur_dir == "up":
-            self.go_next("left", cur_pos, "lhs", data)
-        elif cur_dir == "down":
-            self.go_next("right", cur_pos, "lhs", data)
-        if self.perform_oper:
-            self.dyadic_mod()
+    def ast_check(self, code, array, scope, extra):
+        c = self.check_extra(extra, 'oper')
+        print(f"ast check {code} {c} {type(c)} {c.__hash__()}")
+        if (check := self.check_extra(extra, "oper")) == Symbol("("):
+            if self.check_extra(extra, "value"):
+                # extra["value"] += 1
+                self.inc_value_extra(extra)
+            else:
+                # extra.update({"value": 1})
+                self.assign_extra(extra, "value", 1)
+            array.main.append(code.value)
+        elif check.name in self.nodes.keys():
+            if lit := check_literal(code):
+                print(f"ha! [{code}]", lit, array.cur_pos, array.cur_dir, scope)
+                array.from_scope[scope].append(lit)
         else:
-            self.perform_oper = True
-        new_dir, _ = self.peek_next(cur_dir, cur_pos)
-        if cur_dir != new_dir:
-            self.main_array, self.rhs_array = self.rhs_array, []
-        self.go_next(new_dir, cur_pos, scope, extra)
+            if lit := check_literal(code):
+                print(lit, array.cur_pos, array.cur_dir, scope)
+                array.main.append(lit)
+            else:
+                print('nothing literal here?')
+        self.execute_next(code, array, scope, extra)
 
-    def dyadic_mod(self, **kwargs):
-        # TODO: generalize for all scopes (currently for main)
-        new_main = []
-        if oper := kwargs.get("oper", False):
-            for k in self.main_array:
-                if not self.dyadics.get(oper, self.ast_null)(*(k % p == 0 for p in self.lhs_array)):
-                    self.rhs_array.append(k)
-                else:
-                    new_main.append(k)
+    ##################
+    # WALK FUNCTIONS #
+    ##################
+
+    def walk_lhs(self, array: ArrayGroup, scope: str, extra):
+        self.execute_auxiliary_path("lhs", array, scope, extra)
+
+    def walk_rhs(self, array: ArrayGroup, scope: str, extra):
+        if scope in ["lhs", "rhs"]:
+            print('new array rhs')
+            array = ArrayGroup(scope="main", cur_pos=array.cur_pos, cur_dir=array.cur_dir, marginal=True)
+        self.execute_auxiliary_path("rhs", array, scope, extra)
+
+    def walk(self, code: AST, array: ArrayGroup, scope: str, extra):
+        print(f'walk {code} =>{extra}')
+        if oper := self.check_extra(extra, "oper"):
+            print('extra oper?')
+            self.ast_check(code, array, scope, extra)
         else:
-            for k in self.main_array:
-                if not k % self.lhs_array[0] == 0:
-                    self.rhs_array.append(k)
-                else:
-                    new_main.append(k)
-        self.main_array = new_main
+            print('extra no oper')
+            (self.nodes.get(code.name, self.ast_check))(code, array, scope, extra)
 
-    def ast_iota(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            if data == Symbol("i"):
-                value = self.main_array.pop(0)
-                array = [m for m in range(value)]
-                self.main_array.extend(array)
-            self.go_next(cur_dir, cur_pos, scope, extra)
-        else:
-            raise NotImplementedError("need to implement iota for scopes other than 'main'.")
-
-    def ast_and(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            pass
-        elif scope == "lhs":
-            self.dyadics.get(extra, self.ast_null)(oper=data)
-            self.perform_oper = False
-            self.lhs_array = []
-        elif scope == "rhs":
-            pass
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    @staticmethod
-    def dyadic_and(*args):
-        return all(args)
-
-    def ast_or(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            pass
-        elif scope == "lhs":
-            # initial approach
-            self.dyadics.get(extra, self.ast_null)(oper=data)
-            self.perform_oper = False
-            self.lhs_array = []
-        elif scope == "rhs":
-            pass
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    @staticmethod
-    def dyadic_or(*args):
-        return any(args)
-
-    def ast_not(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            self.main_array = [not k for k in self.main_array]
-        elif scope == "lhs":
-            self.lhs_array = [not k for k in self.lhs_array]
-        elif scope == "rhs":
-            self.rhs_array = [not k for k in self.rhs_array]
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_input(self, data, cur_dir, cur_pos, scope, extra=None):
-        answer = input(": ")
-        self._handle_input(answer)
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_output(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            res = self.main_array
-        elif scope == "lhs":
-            res = self.lhs_array
-        elif scope == "rhs":
-            res = self.rhs_array
-        else:
-            res = []
-        print(*res)
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_erase(self, data, cur_dir, cur_pos, scope, extra=None):
-        if scope == "main":
-            self.main_array = []
-        elif scope == "lhs":
-            self.lhs_array = []
-        elif scope == "rhs":
-            self.rhs_array = []
-        self.go_next(cur_dir, cur_pos, scope, extra)
-
-    def ast_side_erase(self, data, cur_dir, cur_pos, scope, extra=None):
-        self.side_erase = True
-
-    def ast_check(self, data, cur_dir, cur_pos, scope, extra=None):
-        (self.ast_literal if data.isnumeric() else self.ast_null)(data, cur_dir, cur_pos, scope,
-                                                                  extra)
-
-    @staticmethod
-    def ast_null(*args):
-        pass
-
-    def walk(self, cur_value, cur_dir, cur_pos, scope, extra=None):
-        self.nodes.get(cur_value, self.ast_check)(cur_value, cur_dir, cur_pos, scope, extra)
+    #######
+    # RUN #
+    #######
 
     def run(self):
-        print()
-        self.t0 = process_time()
-        cur_value = self.code[self.cur_pos[0]][self.cur_pos[1]]
+        cur_pos = self.code.pos
+        cur_dir = "right"
         scope = "main"
-        self.walk(cur_value, self.cur_dir, self.cur_pos, scope)
+        array = ArrayGroup(scope="main", cur_pos=cur_pos, cur_dir=cur_dir)
+        code = self.code.get(cur_pos)
+        extra = self.def_extra(None)
+        self.walk(code, array, scope, extra)
