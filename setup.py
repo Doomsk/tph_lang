@@ -4,7 +4,7 @@ from tph_lang import __version__
 
 readme = open("README.md", "r").read()
 
-requirements = ["arpeggio", "click"]
+requirements = ["arpeggio", "click", "pysimplegui"]
 
 setup(
     author="Eduardo Maschio",

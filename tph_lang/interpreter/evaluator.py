@@ -31,6 +31,7 @@ class Eval:
             "[iota-range]": self.meta_iota,
             "[open-num]": self.meta_open_num,
             "[close-num]": self.meta_close_num,
+            "[copy]": self.meta_copy,
             "[head]": self.meta_head,
             "[tail]": self.meta_tail,
             "[input]": self.meta_input,
@@ -126,9 +127,9 @@ class Eval:
             else:
                 self.walk_lhs(array, "lhs", extra)
                 self.pop_extra(extra)
-        print(f"before meta {array.main} {array.lhs} {array.rhs}")
+        print(f"before meta {array.main} {array.lhs} {array.rhs} {array.cur_dir}")
         self.metacode.get(code.name)(code, array, scope, extra)
-        print(f"after meta {array.main} {array.lhs} {array.rhs}")
+        print(f"after meta {array.main} {array.lhs} {array.rhs} {array.cur_dir}")
         array.lhs.clean()
 
     def execute_metatriad(self, code, array, scope, extra):
@@ -153,6 +154,7 @@ class Eval:
         print(f"aux path {array.cur_pos} {new_pos} {new_dir} {endline}")
         new_code = self.code.get(new_pos)
         array.cur_pos = new_pos
+        array.cur_dir = new_dir
         self.walk(new_code, array, new_scope, extra)
 
     ##################
@@ -210,7 +212,7 @@ class Eval:
             if len(extra) > 0:
                 oper = self.pop_extra(extra)["oper"]
             else:
-                array.lhs = deepcopy(array.main)
+                array.lhs.extend(deepcopy(array.main))
 
     def meta_head(self, core, array, scope, extra):
         if scope == "main" and len(array.main) > 0:
@@ -224,15 +226,18 @@ class Eval:
         array.main = array.main[:value]
 
     def meta_tail(self, core, array, scope, extra):
-        if scope == "main" and len(array.main) > 0:
-            value = array.main.pop(-1)
-        elif len(array.from_scope[scope]) > 0:
+        print('tail?')
+        if len(array.main) > 0:
             value = array.from_scope[scope].pop(-1)
+            print(f'tail {value} {array.main[-value:]}')
         else:
             raise ValueError("no tail!")
-        if len(extra) > 0:
-            return array.main[-value:]
-        array.main = array.main[-value:]
+        # if len(extra) > 0:
+        #     return deepcopy(array.main[-value:])
+        if scope == "main":
+            array.main = array.main[-value:]
+        else:
+            array.from_scope[scope].extend(deepcopy(array.main[-value:]))
 
     #################
     # AST FUNCTIONS #
@@ -297,6 +302,7 @@ class Eval:
         self.execute_next(code, array, scope, extra)
 
     def ast_tail(self, code, array, scope, extra):
+        print('tail?')
         old_pos, old_dir = array.flush()
         self.execute_metamonad(code, array, scope, extra)
         array.cur_pos, array.cur_dir = old_pos, old_dir
@@ -363,7 +369,7 @@ class Eval:
         print(f'walk {code} =>{extra}')
         if oper := self.check_extra(extra, "oper"):
             print('extra oper?')
-            self.ast_check(code, array, scope, extra)
+            (self.nodes.get(code.name, self.ast_check))(code, array, scope, extra)
         else:
             print('extra no oper')
             (self.nodes.get(code.name, self.ast_check))(code, array, scope, extra)

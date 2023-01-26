@@ -69,6 +69,7 @@ general_symbols_dict = {
     ')': '[close-num]',
     'h': '[head]',
     't': '[tail]',
+    'L': '[loop]',
     'b': '[input]',
     'r': '[output]',
     None: '[null]'
@@ -101,6 +102,7 @@ name_std_dict = {
     "[close-num]": ")",
     "[head]": "h",
     "[tail]": "t",
+    "[loop]": "L",
     "[input]": "b",
     "[output]": "r",
     "[null]": None

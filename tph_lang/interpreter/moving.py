@@ -68,6 +68,18 @@ class Mover:
         new_pos, _ = self.go_next(cur_pos, new_dir)
         return new_pos, new_dir
 
+    def peek_lhs(self, cur_pos, cur_dir):
+        _, endline = self.go_next(cur_pos, self.to_lhs[cur_dir])
+        if not endline:
+            return True
+        return False
+
+    def peek_rhs(self, cur_pos, cur_dir):
+        _, endline = self.go_next(cur_pos, self.to_rhs[cur_dir])
+        if not endline:
+            return True
+        return False
+
     def look_lhs(self, cur_pos, cur_dir):
         return self.go_next(cur_pos, self.to_lhs[cur_dir])
 
