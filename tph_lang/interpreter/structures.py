@@ -1,50 +1,10 @@
-import re
+from abc import ABC, abstractmethod
 from copy import deepcopy
+from tph_lang.core import DIR_LIST
 from tph_lang.core.operations import (
-    # general_symbols_tuple,
-    general_symbols_dict as table,
-    name_std_dict,
-    literals_tuple,
     directions,
     scopes
 )
-
-
-class Symbol:
-    # table = general_symbols_tuple
-
-    def __init__(self, value):
-        self.value, self.name = self.check_lit(value) or self.check_symbols(value)
-
-    def check_symbols(self, data):
-        if data in table.keys():
-            value = table[data]
-            return name_std_dict[value], value
-        # for k in self.table:
-        #     if data == k[0]:
-        #         return name_std_dict[k[1]], k[1]
-        raise ValueError(f"cannot find symbol {data}.")
-
-    @staticmethod
-    def check_lit(data):
-        if data is not None:
-            return (data, literals_tuple[0][1]) if data.isnumeric() else False
-        return ''
-
-    def isnumeric(self):
-        return True if re.findall(literals_tuple[0][0], self.value) else False
-
-    def __hash__(self):
-        return sum([ord(k) * ord(self.value or " ") for k in f"{self.name}"])
-
-    def __eq__(self, value):
-        return self.__hash__() == value.__hash__()
-
-    def __bool__(self):
-        return True if self.value is not None else False
-
-    def __repr__(self):
-        return str(self.value)
 
 
 class ArrayClass:
@@ -100,13 +60,13 @@ class ArrayGroup:
         self._cur_pos = self.check_pos(cur_pos)
         self._cur_dir = self.check_dir(cur_dir)
         self.marginal = marginal
-        self.main_array = ArrayClass("main")
-        self.lhs_array = ArrayClass("lhs")
-        self.rhs_array = ArrayClass("rhs")
+        self._main_array = ArrayClass("main")
+        self._lhs_array = ArrayClass("lhs")
+        self._rhs_array = ArrayClass("rhs")
         self.from_scope = {
-            "main": self.main_array,
-            "lhs": self.lhs_array,
-            "rhs": self.rhs_array
+            "main": self._main_array,
+            "lhs": self._lhs_array,
+            "rhs": self._rhs_array
         }
 
     @staticmethod
@@ -118,7 +78,7 @@ class ArrayGroup:
 
     @staticmethod
     def check_dir(data):
-        if data in directions:
+        if data in directions or data in DIR_LIST:
             return data
         raise ValueError(f"invalid direction given '{data}'.")
 
@@ -136,31 +96,30 @@ class ArrayGroup:
 
     @property
     def main(self):
-        return self.main_array
+        return self._main_array
 
     @main.setter
     def main(self, data):
-        # if isinstance(data, list):
-        #     self.main_array.set(deepcopy(data))
-        # else:
-        #     self.main_array.set(data)
-        self.main_array.set(data)
+        if data is not None:
+            self._main_array.set(deepcopy(data))
 
     @property
     def lhs(self):
-        return self.lhs_array
+        return self._lhs_array
 
     @lhs.setter
     def lhs(self, data):
-        self.lhs_array.set(data)
+        if data is not None:
+            self._lhs_array.set(deepcopy(data))
 
     @property
     def rhs(self):
-        return self.rhs_array
+        return self._rhs_array
 
     @rhs.setter
     def rhs(self, data):
-        self.rhs_array.set(data)
+        if data is not None:
+            self._rhs_array.set(deepcopy(data))
 
     def __getitem__(self, item):
         if item == "main":
@@ -200,3 +159,46 @@ class ArrayGroup:
 
     def flush(self):
         return deepcopy(self.cur_pos), deepcopy(self.cur_dir)
+
+
+class AllOpers(ABC):
+    @abstractmethod
+    def __call__(self, *args, **kwargs):
+        pass
+
+
+class OperType1(AllOpers):
+    """
+    Operators that may require only one entry argument
+    and one output for destination
+    """
+    pass
+
+
+class OperType2(AllOpers):
+    """
+    Operators that may require only one entry argument
+    and two outputs for destination
+    """
+
+
+class OperType3(AllOpers):
+    """
+    Operators that may require two entry arguments
+    and one output for destination
+    """
+    pass
+
+
+class OperType4(AllOpers):
+    """
+    Operators that may require two entry arguments
+    and two output for destination
+    """
+
+
+class OperType5(AllOpers):
+    """
+    Operators that may require three entry arguments
+    and one output destination
+    """

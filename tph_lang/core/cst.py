@@ -9,7 +9,7 @@ class CST(PTNodeVisitor):
 
     def generic(self, n, k):
         val = self.tokens.pop(0)
-        return AST(n.value, n.value, val[1:])
+        return AST(n.main, n.main, val[1:])
 
     def visit_program(self, n, k):
         return AST("program", k)

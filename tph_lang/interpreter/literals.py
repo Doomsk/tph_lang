@@ -1,4 +1,4 @@
-from tph_lang.interpreter.structures import Symbol
+from tph_lang.core.ast import Symbol
 
 
 def check_int(data):

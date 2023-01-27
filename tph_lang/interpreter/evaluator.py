@@ -1,8 +1,8 @@
 from copy import deepcopy
-from tph_lang.core.ast import AST
+from tph_lang.core.ast import AST, Symbol
 from tph_lang.interpreter.moving import Mover
 from tph_lang.interpreter.literals import check_literal
-from tph_lang.interpreter.structures import (ArrayGroup, Symbol)
+from tph_lang.interpreter.structures import (ArrayGroup)
 
 
 # noinspection PyArgumentList
@@ -105,11 +105,11 @@ class Eval:
             self.walk(code, array, scope, extra)
 
     def execute_metamonad(self, code, array, scope, extra):
-        print(code.name, code.value, array.cur_pos, array.cur_dir, scope)
+        print(code.name, code.main, array.cur_pos, array.cur_dir, scope)
         self.metacode.get(code.name, self.meta_null)(code, array, scope, extra)
 
     def execute_metadyad(self, code, array, scope, extra):
-        print(code.name, code.value, array.cur_pos, array.cur_dir, extra, scope)
+        print(code.name, code.main, array.cur_pos, array.cur_dir, extra, scope)
         data = self.walker.look_around(array.cur_pos, array.cur_dir)
         self.append_extra(extra, code)
         if data["lhs"]:
@@ -133,7 +133,7 @@ class Eval:
         array.lhs.clean()
 
     def execute_metatriad(self, code, array, scope, extra):
-        print(code.name, code.value, array.cur_pos, array.cur_dir, scope)
+        print(code.name, code.main, array.cur_pos, array.cur_dir, scope)
         data = self.walker.look_around(array.cur_pos, array.cur_dir)
         new_extra = self.def_extra(code)
         if data["rhs"]:
@@ -244,22 +244,22 @@ class Eval:
     #################
 
     def ast_right(self, code, array, scope, extra):
-        print(code.name, code.value, array.cur_pos, array.cur_dir)
+        print(code.name, code.main, array.cur_pos, array.cur_dir)
         array.cur_dir = "right"
         self.execute_direction(array, scope, extra)
 
     def ast_left(self, code, array, scope, extra):
-        print(code.name, code.value, array.cur_pos, array.cur_dir)
+        print(code.name, code.main, array.cur_pos, array.cur_dir)
         array.cur_dir = "left"
         self.execute_direction(array, scope, extra)
 
     def ast_up(self, code, array, scope, extra):
-        print(code.name, code.value, array.cur_pos, array.cur_dir)
+        print(code.name, code.main, array.cur_pos, array.cur_dir)
         array.cur_dir = "up"
         self.execute_direction(array, scope, extra)
 
     def ast_down(self, code, array, scope, extra):
-        print(code.name, code.value, array.cur_pos, array.cur_dir)
+        print(code.name, code.main, array.cur_pos, array.cur_dir)
         array.cur_dir = "down"
         self.execute_direction(array, scope, extra)
 
@@ -339,7 +339,7 @@ class Eval:
             else:
                 # extra.update({"value": 1})
                 self.assign_extra(extra, "value", 1)
-            array.main.append(code.value)
+            array.main.append(code.main)
         elif check.name in self.nodes.keys():
             if lit := check_literal(code):
                 print(f"ha! [{code}]", lit, array.cur_pos, array.cur_dir, scope)

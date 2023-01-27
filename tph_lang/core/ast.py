@@ -1,9 +1,12 @@
-from tph_lang.interpreter.structures import Symbol
+import re
+
+from tph_lang.core.operations import general_symbols_dict as table, name_std_dict, literals_tuple
 
 
 class AST:
     def __init__(self, name, value, pos=None):
         self.name = name
+        print(f"AST value type {type(value)} {value}")
         self.value = self.build_values(value, pos)
         self.pos = pos if pos else (self.lines()[0], self.cols(self.lines()[0])[0])
 
@@ -12,7 +15,7 @@ class AST:
             return {pos[0]: {pos[1]: Symbol(data)}}
         values = dict()
         for p in data:
-            for k, v in p.value.items():
+            for k, v in p.main.items():
                 for q, r in v.items():
                     values[k].update({q: r}) if k in values.keys() else values.update({k: {q: r}})
         return values
@@ -56,5 +59,42 @@ class AST:
             for n, p in enumerate(v):
                 body += f" {' ' * (4 - len(str(n)))}{n}"
                 body += f"  ({' ' * (3 - len(str(k)))}{k},{' ' * (3 - len(str(p[0])))}{p[0]})  "
-                body += f" {p[1].value}  {p[1].name}\n"
+                body += f" {p[1].main}  {p[1].name}\n"
         return header + body
+
+
+class Symbol:
+    # table = general_symbols_tuple
+
+    def __init__(self, value):
+        self.value, self.name = self.check_lit(value) or self.check_symbols(value)
+
+    def check_symbols(self, data):
+        if data in table.keys():
+            value = table[data]
+            return name_std_dict[value], value
+        # for k in self.table:
+        #     if data == k[0]:
+        #         return name_std_dict[k[1]], k[1]
+        raise ValueError(f"cannot find symbol {data}.")
+
+    @staticmethod
+    def check_lit(data):
+        if data is not None:
+            return (data, literals_tuple[0][1]) if data.isnumeric() else False
+        return ''
+
+    def isnumeric(self):
+        return True if re.findall(literals_tuple[0][0], self.value) else False
+
+    def __hash__(self):
+        return sum([ord(k) * ord(self.value or " ") for k in f"{self.name}"])
+
+    def __eq__(self, value):
+        return self.__hash__() == value.__hash__()
+
+    def __bool__(self):
+        return True if self.value is not None else False
+
+    def __repr__(self):
+        return str(self.value)

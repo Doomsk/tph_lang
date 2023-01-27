@@ -1,31 +1,26 @@
 from copy import deepcopy
-from tph_lang.core.ast import AST
+from typing import Any
+from tph_lang.core import (
+    DirS,
+    OperS,
+    LiteralS
+)
+from tph_lang.core.ast2 import AST, Symbol
 from tph_lang.interpreter.moving import Mover
-from tph_lang.interpreter.literals import check_literal
-from tph_lang.interpreter.structures import (ArrayGroup, Symbol)
+from tph_lang.interpreter.structures import ArrayGroup
+import tph_lang.interpreter.literals2 as lit
+import tph_lang.interpreter.operators as oper
 
 
 class Eval:
     def __init__(self, code: AST):
         self.code = self.check_code(code)
-        self.cell = Mover(code)
-        self.moves = {
-            "[move-right]": self.ast_right,
-            "[move-left]": self.ast_left,
-            "[move-up]": self.ast_up,
-            "[move-down]": self.ast_down,
-        }
-        self.nodes = {
-            "[end-program]": self.ast_endprogram,
-            "[mod]": self.ast_mod,
-            "[iota-range]": self.ast_iota,
-            "[copy]": self.ast_copy,
-            "[open-num]": self.ast_open_num,
-            "[close-num]": self.ast_close_num,
-            "[head]": self.ast_head,
-            "[tail]": self.ast_tail,
-            "[input]": self.ast_input,
-            "[output]": self.ast_output
+        self.tokens = {
+            OperS.END_PROGRAM: oper.EndProgram(),
+            OperS.INPUT: oper.Input(),
+            OperS.OUTPUT: oper.Output(),
+            OperS.SIMPLE_SUM: oper.SimpleSum(),
+            LiteralS.DIGIT: lit.Int(),
         }
 
     @staticmethod
@@ -34,12 +29,31 @@ class Eval:
             return data
         raise ValueError(f"code must be parsed and of type tph_lang.core.ast.AST.")
 
-    def ast_check(self, code, array, scope):
-        pass
-
-    def walk(self, code, array, scope):
-        n = code.name
-        self.moves.get(n, self.nodes.get(n, self.ast_check))(code, array, scope)
+    def walk(self, code: [AST, str], array: ArrayGroup, scope):
+        if isinstance(code, str):
+            return array
+        if code.has_lhs():
+            array = self.walk(code.lhs, array, scope)
+        if code.has_rhs():
+            if code.has_main():
+                print("yay main + rhs")
+            else:
+                print("yay rhs, no main")
+                # new_array = ArrayGroup(scope="main", cur_pos=code.pos, cur_dir=code.dir)
+                # new_array.main = array.rhs
+                # self.tokens[code.name](self.walk(code.rhs, array, scope))
+        else:
+            if code.has_main():
+                print(f"has main {code} -> {code.main}")
+                array = self.tokens[code.name](array)
+                array = self.walk(code.main, array, scope)
+            else:
+                print("unknown")
+        return array
 
     def run(self):
-        pass
+        cur_pos = self.code.pos
+        cur_dir = self.code.dir
+        scope = "main"
+        array = ArrayGroup(scope=scope, cur_pos=cur_pos, cur_dir=cur_dir)
+        self.walk(self.code, array, scope)
