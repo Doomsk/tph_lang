@@ -28,18 +28,18 @@ impl Coords {
     }
 
     pub fn down(&mut self, limit: u64) {
-        self.l = (self.l as i64).wrapping_add(1) as u64 % limit;
+        self.l = (self.l + 1) % limit;
     }
 
     pub fn up(&mut self, limit: u64) {
-        self.l = (self.l as i64).wrapping_sub(1) as u64 % limit;
+        self.l = (self.l as i64 - 1).rem_euclid(limit as i64) as u64;
     }
 
     pub fn right(&mut self, limit: u64) {
-        self.c = (self.c as i64).wrapping_add(1) as u64 % limit;
+        self.c = (self.c + 1) % limit;
     }
 
     pub fn left(&mut self, limit: u64) {
-        self.c = (self.c as i64).wrapping_sub(1) as u64 % limit;
+        self.c = (self.c as i64 - 1).rem_euclid(limit as i64) as u64;
     }
 }
