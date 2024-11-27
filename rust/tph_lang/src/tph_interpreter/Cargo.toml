@@ -1,6 +1,8 @@
 [package]
-name = "tph_interpreter"
+name = "tph-interpreter"
 version = "0.1.0"
 edition = "2021"
+description = "tph is an APL and Befunge inspired two-dimensional array programming language."
+authors = ["Doomsk <eduardo.maschio@hhat-lang.org"]
 
 [dependencies]

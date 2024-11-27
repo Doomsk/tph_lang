@@ -1,6 +1,7 @@
 [package]
-name = "tph_cli"
+name = "tph-cli"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tph-interpreter = { path = "../tph_interpreter" }
