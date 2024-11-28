@@ -15,6 +15,10 @@ impl UnitPosition {
         UnitPosition { coords: Coords::new(), dir: Direction::RIGHT }
     }
 
+    pub fn cur_state(&self) -> ((u64, u64), Direction) {
+        (self.coords.cur_pos(), self.dir.clone())
+    }
+
     pub fn next(&mut self, space: &SpaceDimension) {
         match self.dir {
             Direction::RIGHT => self.coords.right(space.width),
@@ -27,6 +31,7 @@ impl UnitPosition {
 }
 
 
+#[derive(Clone)]
 pub enum Direction {
     UP,
     DOWN,

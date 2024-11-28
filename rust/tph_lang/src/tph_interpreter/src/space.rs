@@ -16,8 +16,8 @@ pub struct SpaceDimension {
 /// The same goes the other way: if `l` lies on position 0 and
 /// moves one less, it will reappear on position 4.
 pub struct Coords {
-    pub l: u64,
-    pub c: u64,
+    l: u64,
+    c: u64,
 }
 
 impl Coords {
@@ -25,6 +25,10 @@ impl Coords {
     /// e.g. position `(0, 0)`
     pub fn new() -> Coords {
         Coords { l:0, c:0 }
+    }
+
+    pub fn cur_pos(&self) -> (u64, u64) {
+        (self.l, self.c)
     }
 
     pub fn down(&mut self, limit: u64) {
