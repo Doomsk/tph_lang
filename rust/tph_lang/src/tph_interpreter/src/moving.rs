@@ -20,6 +20,12 @@ impl UnitPosition {
         (self.coords.cur_pos(), self.dir.clone())
     }
 
+    pub fn peek_lhs(&self) -> bool {
+
+    }
+
+    pub fn peek_rhs(&self) -> bool {}
+
     pub fn next(&mut self, space: &SpaceDimension) {
         match self.dir {
             Direction::RIGHT => self.coords.right(space.width),
@@ -29,7 +35,7 @@ impl UnitPosition {
         }
     }
 
-    pub fn next_lhs(&mut self, pos: &PositionMap, ) {
+    pub fn next_lhs(&mut self, pos: &PositionMap, ) -> Option<UnitPosition> {
         match self.dir {
             Direction::RIGHT => {},
             Direction::LEFT => {},

@@ -23,12 +23,31 @@
 //! [EndProgram] operator `.` ([Monad]): terminates the program
 //!
 
-use crate::operators_traits::{Monad, Dyad, Triad};
+use std::os::unix::prelude::ExitStatusExt;
+use std::process::ExitCode;
+use crate::operators_traits::{Monad, Dyad, Triad, OperationResult, Operator};
+use crate::stack::Stack;
+
+
+/// From a String, get the corresponding Operator type
+pub fn get_operator<T>(data: String) -> Operator<T> {
+    match data.as_str() {
+        ">" => Operator::Monad(Box::new(Right {})),
+        "." => Operator::Monad(Box::new(EndProgram {})),
+        _ => todo!(),
+    }
+}
 
 
 /// Right operator `>`
 pub struct Right {
 
+}
+
+impl<T> Monad<T> for Right {
+    fn compute(&self, stack: Stack) -> OperationResult<T> {
+        todo!()
+    }
 }
 
 
@@ -131,7 +150,7 @@ pub struct Product {
 ///
 /// Fills the range from a value. If [Monad], ranges from 1 to current stack head -1.
 /// If [Dyad], ranges from LHS pipe to current stack head -1. If [Triad], do something
-/// else. -- Triad to be proper defined.
+/// else. -- Triad to be properly defined.
 pub struct Iota {
 
 }
@@ -145,10 +164,20 @@ pub struct Input {
 }
 
 
+/// FileInput operator `B`
+///
+/// File input data on the stack. As a [Dyad], gets from the LHS pipe which file
+/// to read as string. As a [Triad], gets from the RHS pipe how to parse the data,
+/// e.g. as string, numbers, etc. -- Triad to be properly defined.
+pub struct FileInput {
+
+}
+
+
 /// Output operator `o`
 ///
 /// Outputs data. If [Monad], outputs on the screen. If [Dyad], outputs according
-/// to specifications (file, etc.). -- Dyad version to be proper defined.
+/// to specifications (file, etc.). -- Dyad version to be properly defined.
 pub struct Output {
 
 }
@@ -158,17 +187,17 @@ pub struct Output {
 ///
 /// Cause digits pre comma to form a number and the post digits to form another
 /// separated number. Ex:
-/// ```
+/// ```ignore
 /// 10,20+
 /// ```
 /// This is `10` and `20` that will go to the stack and be applied a `+` operator.
 /// Another:
-/// ```
+/// ```ignore
 /// 100,o
 /// ```
 /// Although valid, it is not very useful, since the following character is an operator.
 /// Digits with whitespaces will be composed as a single number in the end, ex:
-/// ```
+/// ```ignore
 /// 1 2    45 8
 /// ```
 /// is the same number as `12458`.
@@ -192,4 +221,11 @@ pub struct SemiColon {
 pub struct EndProgram {
 
 }
+
+impl<T> Monad<T> for EndProgram {
+    fn compute(&self, _stack: Stack) -> OperationResult<T> {
+        OperationResult::Exit(ExitCode::SUCCESS, "".to_string())
+    }
+}
+
 

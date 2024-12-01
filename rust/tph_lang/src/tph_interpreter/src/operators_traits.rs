@@ -1,24 +1,40 @@
+use std::any::Any;
+use std::process::ExitCode;
 use crate::stack::Stack;
+
+
+pub enum Operator<T> {
+    Monad(Box<dyn Monad<T>>),
+    Dynamic(Box<dyn Dyad<T>>),
+    Triad(Box<dyn Triad<T>>),
+}
+
+
+pub enum OperationResult<T> {
+    Ok(T),
+    Exit(ExitCode, String),
+    None,
+}
 
 
 /// Accepts the stack data from the current pipe (predecessor operation)
 ///
-/// ```
+/// ```ignore
 ///   current pipe
 ///      |           operator
 ///      |              |
 ///      |
 /// >...................O......
 /// ```
-pub trait Monad {
-    fn compute(&self, stack: Stack);
+pub trait Monad<T> {
+    fn compute(&self, stack: Stack) -> OperationResult<T>;
 }
 
 
 /// Accepts the stack data from the current pipe (predecessor operation)
 /// and from the stack data of the adjacent left-hand-side pipe.
 ///
-/// ```
+/// ```ignore
 ///   current pipe
 ///      |              .
 ///      |               . -- left-hand-side (LHS) pipe
@@ -30,8 +46,8 @@ pub trait Monad {
 /// ```
 /// Note that the LHS is relative to the operator direction, relative to
 /// its pipe execution direction.
-pub trait Dyad {
-    fn compute(&self, stack: Stack);
+pub trait Dyad<T> {
+    fn compute(&self, stack: Stack, lhs_stack: Stack) -> OperationResult<T>;
 }
 
 
@@ -39,7 +55,7 @@ pub trait Dyad {
 /// from the stack data of the adjacent left-hand-side pipe and from the
 /// stack data of the adjacent right-hand-side pipe.
 ///
-/// ```
+/// ```ignore
 ///   current pipe
 ///      |              .
 ///      |               . -- left-hand-side (LHS) pipe
@@ -52,8 +68,8 @@ pub trait Dyad {
 /// ```
 /// Note that the LHS and RHS are relative to the operator direction,
 /// relative to its pipe execution direction.
-pub trait Triad {
-    fn compute(&self, stack: Stack);
+pub trait Triad<T> {
+    fn compute(&self, stack: Stack, lhs_stack: Stack, rhs_stack: Stack) -> OperationResult<T>;
 }
 
 

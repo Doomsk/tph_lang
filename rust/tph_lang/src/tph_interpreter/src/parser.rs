@@ -11,7 +11,6 @@ pub struct Code {
 impl Code {
     pub fn new(file_name: &str) -> Code {
         let data = fs::read_to_string(file_name).expect("Something went wrong");
-        println!("{:?}", data.clone());
         let as_lines: Vec<String> = data.lines().map(String::from).collect();
         let pos_map: PositionMap = PositionMap::new(as_lines.clone());
         Code { data: as_lines, pos_map }

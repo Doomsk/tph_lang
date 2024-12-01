@@ -55,11 +55,12 @@ impl Coords {
 #[derive(Debug)]
 pub struct PositionMap {
     pub grid: Vec<[u64; 2]>,
+    // // test with vector instead of array
+    // pub grid: Vec<Vec<u64>>,
 }
 
 impl PositionMap {
     pub fn new(code_lines: Vec<String>) -> PositionMap {
-        // let mut grid: Vec<[u64; 2]> = Vec::new();
         let mut grid: Vec<[u64; 2]> = code_lines
             .iter()
             .enumerate()
@@ -70,5 +71,17 @@ impl PositionMap {
             })
             .collect();
         PositionMap { grid }
+
+
+        // // trying using vector instead of array
+        // let mut grid: Vec<Vec<u64>> = code_lines
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(idx, line)| {
+        //         line.chars().enumerate().map(|(idx2, c)| {
+        //
+        //         }
+        //         )
+        //     })
     }
 }

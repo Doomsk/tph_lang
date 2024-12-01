@@ -30,10 +30,15 @@ fn main() {
         }
         else { Option::None }
     } ).collect();
-    println!("{:?}", res);
+    // println!("{:?}", res);
 
-    let codes: Vec<Code> = res.iter().map(|arg0| parse_file(arg0)).collect();
-    println!("{:?}", codes);
+    // let codes: Vec<Code> = res.iter().map(|arg0| parse_file(arg0)).collect();
+    // println!("{:?}", codes);
+    for arg in res.iter() {
+        let sub_res = parse_file(arg);
+        println!("{:?}\n", sub_res);
+    }
+    println!("\ndone.");
     // let code = parse_file(file_path);
     // println!("{:?}", code);
 }
