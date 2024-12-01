@@ -1,10 +1,11 @@
-use crate::space::{Coords, SpaceDimension};
+use crate::space::{Coords, SpaceDimension, PositionMap};
 
 
 /// The program current "caret" position in the program dimension.
 ///
 /// It consists of coordinates (`coords`) as `Coords` type and its
 /// current direction (`dir`) as `Direction`.
+#[derive(Clone)]
 pub struct UnitPosition {
     pub coords: Coords,
     pub dir: Direction
@@ -28,6 +29,15 @@ impl UnitPosition {
         }
     }
 
+    pub fn next_lhs(&mut self, pos: &PositionMap, ) {
+        match self.dir {
+            Direction::RIGHT => {},
+            Direction::LEFT => {},
+            Direction::DOWN => {},
+            Direction::UP => {},
+        }
+    }
+
 }
 
 
@@ -37,4 +47,32 @@ pub enum Direction {
     DOWN,
     LEFT,
     RIGHT
+}
+
+
+
+pub struct MoveChecker {
+    pub unit_type: UnitType,
+    pub cur_dir: Direction,
+    pos: UnitPosition,
+}
+
+impl MoveChecker {
+    pub fn new(unit_type: UnitType, cur_dir: Direction, unit_pos: UnitPosition) -> MoveChecker {
+        MoveChecker { unit_type, cur_dir, pos: unit_pos.clone() }
+    }
+
+    pub fn check_lhs(&self, space: &PositionMap) {
+
+
+    }
+}
+
+
+#[derive(Clone)]
+pub enum UnitType {
+    Data,
+    MonadOperator,
+    DyadOperator,
+    EndOperator,
 }

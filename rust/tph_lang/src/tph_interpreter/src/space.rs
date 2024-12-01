@@ -15,10 +15,12 @@ pub struct SpaceDimension {
 /// position 0.
 /// The same goes the other way: if `l` lies on position 0 and
 /// moves one less, it will reappear on position 4.
+#[derive(Clone, PartialEq, Hash, Debug)]
 pub struct Coords {
     l: u64,
     c: u64,
 }
+
 
 impl Coords {
     /// Coords always start in the top left side of a program,
@@ -45,5 +47,28 @@ impl Coords {
 
     pub fn left(&mut self, limit: u64) {
         self.c = (self.c as i64 - 1).rem_euclid(limit as i64) as u64;
+    }
+}
+
+
+/// Use this to store the position of all the characters (units)
+#[derive(Debug)]
+pub struct PositionMap {
+    pub grid: Vec<[u64; 2]>,
+}
+
+impl PositionMap {
+    pub fn new(code_lines: Vec<String>) -> PositionMap {
+        // let mut grid: Vec<[u64; 2]> = Vec::new();
+        let mut grid: Vec<[u64; 2]> = code_lines
+            .iter()
+            .enumerate()
+            .flat_map(|(idx, line)| {
+                line.chars().enumerate().map(move |(idx2, c)| {
+                  [idx as u64, idx2 as u64]
+                })
+            })
+            .collect();
+        PositionMap { grid }
     }
 }
