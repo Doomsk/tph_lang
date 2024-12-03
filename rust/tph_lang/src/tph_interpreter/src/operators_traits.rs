@@ -1,14 +1,23 @@
 use std::any::Any;
 use std::process::ExitCode;
-use crate::stack::Stack;
+use crate::stack::PipeStack;
 
 
 pub enum Operator<T> {
     Monad(Box<dyn Monad<T>>),
-    Dynamic(Box<dyn Dyad<T>>),
+    Dyad(Box<dyn Dyad<T>>),
     Triad(Box<dyn Triad<T>>),
 }
 
+impl<T> Operator<T> {
+    pub fn compute(&self) {
+        match self {
+            Operator::Monad(op) => Monad::compute(),
+            Operator::Dyad(op) => Dyad::compute(),
+            Operator::Triad(op) => Triad::compute(),
+        }
+    }
+}
 
 pub enum OperationResult<T> {
     Ok(T),

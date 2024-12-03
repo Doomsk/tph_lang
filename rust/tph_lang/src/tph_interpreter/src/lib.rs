@@ -9,31 +9,33 @@ use std::path::Path;
 
 mod moving;
 mod space;
-mod evaluator;
+pub mod evaluator;
 pub mod operators_traits;
 mod stack;
 pub mod parser;
 pub mod operators;
+pub mod code;
 
-use parser::{Code};
+use crate::code::CodeData;
+use crate::evaluator::Evaluator;
 
 
-pub fn parse_file(file_name: &str) -> Code {
-    Code::new(file_name)
+pub fn parse_file(file_name: &str) -> CodeData {
+    CodeData::new(file_name)
 }
 
-
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+pub fn run_code(code: CodeData) {
+    let mut evaluator = Evaluator::new(code);
+    evaluator.run();
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+    // #[test]
+    // fn it_works() {
+    //     let result = add(2, 2);
+    //     assert_eq!(result, 4);
+    // }
 }

@@ -1,2 +1,5 @@
 .venv/
 .idea/
+python/.venv/
+rust/*/target/
+rust/tph_lang/src/*/target/

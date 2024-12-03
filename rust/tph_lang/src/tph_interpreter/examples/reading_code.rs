@@ -3,7 +3,7 @@
 use std::{env, fs};
 use std::path::{PathBuf, absolute, Path};
 use tph_interpreter::parse_file;
-use tph_interpreter::parser::Code;
+use tph_interpreter::code::CodeData;
 
 
 fn main() {
@@ -14,7 +14,7 @@ fn main() {
     // let binding = absolute(&mut path_file).unwrap();
     // let abs_path: &str = binding.to_str().unwrap();
 
-    let file_path = "/Users/dooms/dooms/repos/tph_lang/rust/tph_lang/src/tph_interpreter/examples/";
+    let file_path = env::var("PWD") + "/src/tph_interpreter/examples/";
     let paths = fs::read_dir(file_path).unwrap();
 
     let res: Vec<String> = paths.into_iter().filter_map(|f| {

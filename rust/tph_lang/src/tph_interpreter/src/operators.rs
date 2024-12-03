@@ -30,10 +30,10 @@ use crate::stack::Stack;
 
 
 /// From a String, get the corresponding Operator type
-pub fn get_operator<T>(data: String) -> Operator<T> {
-    match data.as_str() {
-        ">" => Operator::Monad(Box::new(Right {})),
-        "." => Operator::Monad(Box::new(EndProgram {})),
+pub fn get_operator<T>(data: char) -> Operator<T> {
+    match data {
+        '>' => Operator::Monad(Box::new(Right {})),
+        '.' => Operator::Monad(Box::new(EndProgram {})),
         _ => todo!(),
     }
 }
